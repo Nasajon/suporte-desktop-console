@@ -35,7 +35,7 @@ class ExclusaoStep(Step):
 
         modo = self.db_adapter.execute_query_first_result(sql)
 
-        if modo['modo'] == 0:
+        if str(modo['modo']) == '0':
             return True
         else:
             return False

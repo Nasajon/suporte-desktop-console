@@ -18,27 +18,28 @@ from suporte_console.exclusao_empresas.selecao_dados_step import SelecaoDadosSte
 from suporte_console.exclusao_empresas.selecao_dados_incremental_step import SelecaoDadosIncrementalStep
 
 
+STEPS = {
+    'exclusao': ExclusaoStep,
+    'criacao_buffer': CriacaoBufferStep,
+    'auto_dependencias': AutoDependenciasStep,
+    'selecao_dados': SelecaoDadosStep,
+    'selecao_dados_incremental': SelecaoDadosIncrementalStep,
+    'ajuste_buffer': AjusteBufferStep,
+    'melhorias_modelagem': MelhoriasModelagemStep,
+    'apaga_buffer_temp': ApagaBufferTempStep,
+    'permissoes_nasajon': PermissoesNasajonStep,
+    'popula_pks': PopularPKsStep
+}
+
+LISTA_STEPS = [STEPS[k] for k in STEPS]
+LISTA_STEPS.append('processo_basico')
+
+STEPS_PROCESSO_BASICO = ['melhorias_modelagem', 'criacao_buffer',
+                         'selecao_dados', 'ajuste_buffer', 'exclusao',
+                         'apaga_buffer_temp']
+
+
 class ExclusaoEmpresasCommand(Command):
-
-    STEPS = {
-        'exclusao': ExclusaoStep,
-        'criacao_buffer': CriacaoBufferStep,
-        'auto_dependencias': AutoDependenciasStep,
-        'selecao_dados': SelecaoDadosStep,
-        'selecao_dados_incremental': SelecaoDadosIncrementalStep,
-        'ajuste_buffer': AjusteBufferStep,
-        'melhorias_modelagem': MelhoriasModelagemStep,
-        'apaga_buffer_temp': ApagaBufferTempStep,
-        'permissoes_nasajon': PermissoesNasajonStep,
-        'popula_pks': PopularPKsStep
-    }
-
-    LISTA_STEPS = [v for _, v in STEPS]
-    LISTA_STEPS.append('processo_basico')
-
-    STEPS_PROCESSO_BASICO = ['melhorias_modelagem', 'criacao_buffer',
-                             'selecao_dados', 'ajuste_buffer', 'exclusao',
-                             'apaga_buffer_temp']
 
     def config_logger_fks():
         # Configuring logger
@@ -72,7 +73,7 @@ class ExclusaoEmpresasCommand(Command):
             parser.add_argument(
                 "-s",
                 "--step",
-                help=f"Etapa do processo de exclusão a ser executada. Válidos: {ExclusaoEmpresasCommand.LISTA_STEPS}.",
+                help=f"Etapa do processo de exclusão a ser executada. Válidos: {LISTA_STEPS}.",
                 required=False,
                 default='processo_basico'
             )
@@ -83,16 +84,16 @@ class ExclusaoEmpresasCommand(Command):
 
             # Resolvendo os passos a executar
             steps = [step_id]
-            if not(step_id in ExclusaoEmpresasCommand.LISTA_STEPS):
+            if not(step_id in LISTA_STEPS):
                 logger.warning(
-                    f"Parâmetro step inválido {step_id}. Use: {ExclusaoEmpresasCommand.LISTA_STEPS}")
+                    f"Parâmetro step inválido {step_id}. Use: {LISTA_STEPS}")
                 sys.exit(4)
             if step_id == 'processo_basico':
-                steps = ExclusaoEmpresasCommand.STEPS_PROCESSO_BASICO
+                steps = STEPS_PROCESSO_BASICO
 
             # Executando cada step
             for id in steps:
-                step_obj = ExclusaoEmpresasCommand.STEPS[id](self.db_adapter)
+                step_obj = STEPS[id](self.db_adapter)
                 step_obj.main(empresas)
 
         finally:

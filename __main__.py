@@ -1,5 +1,4 @@
 import argparse
-from asyncio.log import logger
 import datetime
 import logging
 import sys
@@ -13,7 +12,7 @@ from suporte_console.exclusao_empresas.exclusao_empresas_command import Exclusao
 
 COMMANDS = {
     'exclusao_empresas': ExclusaoEmpresasCommand,
-    'convete_modo_empresa': ConverteModoEmpresaCommand
+    'converte_modo_empresa': ConverteModoEmpresaCommand
 }
 
 
@@ -39,21 +38,68 @@ def config_logger():
     logger.addHandler(file_handler)
 
 
+def clone_database(
+    database_default_name: str,
+    database_name: str,
+    database_user: str,
+    database_pass: str,
+    database_host: str,
+    database_port: str,
+    new_database: str
+):
+    try:
+        start_time = time.time()
+        logger = logging.getLogger('suporte_console')
+        logger.info('Clonando o banco de dados...')
+
+        pool = create_pool(
+            database_user,
+            database_pass,
+            database_host,
+            database_port,
+            database_default_name,
+            1,
+            'AUTOCOMMIT'
+        )
+
+        # Abrindo conexao com o BD
+        with pool.connect() as conn:
+            db_adapter = DBAdapter2(conn, False)
+
+            sql = f"create database {new_database} with owner={database_user} template={database_name}"
+            db_adapter.execute(sql)
+    finally:
+        logger.info("- Tempo clonando o banco %s seconds -" %
+                    (time.time() - start_time))
+
+
 def internal_main(
     database_name: str,
     database_user: str,
     database_pass: str,
     database_host: str,
     database_port: str,
-    command: str
+    command: str,
+    database_default_name: str,
+    new_database: str
 ):
-    config_logger()
-
     logger = logging.getLogger('suporte_console')
     logger.info('Abrindo conexão com o banco de dados...')
 
     start_time = time.time()
     try:
+        if new_database is not None:
+            clone_database(
+                database_default_name,
+                database_name,
+                database_user,
+                database_pass,
+                database_host,
+                database_port,
+                new_database
+            )
+            database_name = new_database
+
         # Criando o pool de conexoes
         pool = create_pool(
             database_user,
@@ -70,9 +116,8 @@ def internal_main(
             db_adapter = DBAdapter2(conn)
 
             # Resolvendo os passos a executar
-            commands_list = [v for _, v in COMMANDS]
-            command_l = [command]
-            if not(command_l in commands_list):
+            commands_list = [k for k in COMMANDS]
+            if not(command in commands_list):
                 logger.warning(
                     f"Parâmetro command inválido {command}. Use: {commands_list}")
                 sys.exit(4)
@@ -87,7 +132,12 @@ def internal_main(
 
 
 def main():
+
     try:
+        # Configuring logger
+        config_logger()
+        logger = logging.getLogger('suporte_console')
+
         # Initialize parser
         parser = argparse.ArgumentParser(
             description="""Utilitário para execução de comandos de suporte ao BD do ERP 2 (via linha de comando: console)."""
@@ -96,6 +146,10 @@ def main():
         # Adding arguments
         parser.add_argument(
             "-d", "--database", help="Nome do banco de dados para conexão", required=True)
+        parser.add_argument(
+            "-n", "--new_database", help="Nome do banco de dados criado pelo procedimento", required=False)
+        parser.add_argument(
+            "-f", "--database_default_name", help="Nome do banco de dados default para conexão, ao criar uma cópia do BD a ser tratado.", required=False, default='postgres')
         parser.add_argument(
             "-u", "--user", help="Usuário para conexão com o banco de dados", required=False, default='postgres')
         parser.add_argument(
@@ -117,7 +171,9 @@ def main():
             args.password,
             args.host,
             args.port,
-            args.command
+            args.command,
+            args.database_default_name,
+            args.new_database
         )
         sys.exit(0)
     except Exception as e:

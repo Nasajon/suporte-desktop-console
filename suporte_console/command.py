@@ -3,7 +3,7 @@ import logging
 import sys
 
 from abc import ABC, abstractmethod
-from db_adapter2 import DBAdapter2
+from suporte_console.db_adapter2 import DBAdapter2
 
 
 class Command(ABC):

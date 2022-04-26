@@ -5,9 +5,10 @@ from sqlparams import SQLParams
 
 class DBAdapter2:
 
-    def __init__(self, db_connection):
+    def __init__(self, db_connection, control_transaction: bool = True):
         self._db = db_connection
         self._transaction = None
+        self._control_transaction = control_transaction
 
     def begin(self):
         if self._transaction is None:
@@ -171,7 +172,7 @@ class DBAdapter2:
         new_transaction = not self.in_transaction()
 
         try:
-            if new_transaction:
+            if self._control_transaction and new_transaction:
                 self.begin()
 
             if (kwargs is not None):
@@ -181,12 +182,12 @@ class DBAdapter2:
             else:
                 return self._db.execute(sql)
         except:
-            if new_transaction:
+            if self._control_transaction and new_transaction:
                 self.rollback()
             raise
 
         finally:
-            if new_transaction:
+            if self._control_transaction and new_transaction:
                 self.commit()
 
     # def execute_query_from_file(self, query_file_path, *parameters):

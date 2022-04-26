@@ -29,6 +29,18 @@ class ConverteModoEmpresaCommand(Command):
         16: 'conjuntosprospects'
     }
 
+    def ajusta_persmissoes_group_nasajon(self):
+        """
+        Roda a função ns.permissoes, para ajustar as permissões do BD.
+        """
+
+        try:
+            sql = f"select * from ns.permissoes()"
+            self.db_adapter.execute(sql)
+        except Exception as e:
+            self.log_warning(
+                f"Erro manipulando permissões do BD clonado: {e}")
+
     def is_modo_empresa(self):
         """
         Retorna true se o BD estiver em modo empresa, e false, caso contrário.
@@ -40,18 +52,18 @@ class ConverteModoEmpresaCommand(Command):
 
         modo = self.db_adapter.execute_query_first_result(sql)
 
-        if modo['modo'] == 0:
+        if str(modo['modo']) == '0':
             return True
         else:
             return False
 
-    def set_modo_contabil(self):
+    def set_modo_empresa(self):
         """
-        Atualiza a flag do banco para o modo contábil.
+        Atualiza a flag do banco para o modo empresa.
         """
 
         sql = """
-        update ns.configuracoes set valor=1 where CAMPO = 1 AND APLICACAO = 0
+        update ns.configuracoes set valor=0 where CAMPO = 1 AND APLICACAO = 0
         """
 
         self.db_adapter.execute(sql)
@@ -69,7 +81,10 @@ class ConverteModoEmpresaCommand(Command):
         ]
 
         for sql in sqls:
-            self.db_adapter.execute(sql)
+            try:
+                self.db_adapter.execute(sql)
+            except Exception as e:
+                self.log_warning(f'Problema ao criar tabela de backup: {e}')
 
         # Tratando do owner destas tabelas
         try:
@@ -86,8 +101,12 @@ class ConverteModoEmpresaCommand(Command):
         # Copiando tabelas de cadastro
         for cadastro in ConverteModoEmpresaCommand.CADASTROS:
             tabela = ConverteModoEmpresaCommand.CADASTROS[cadastro]
-            sql = f"create table {tabela}_bkp as select * from ns.{tabela};"
-            self.db_adapter.execute(sql)
+
+            try:
+                sql = f"create table {tabela}_bkp as select * from ns.{tabela};"
+                self.db_adapter.execute(sql)
+            except Exception as e:
+                self.log_warning(f'Problema ao criar tabela de backup: {e}')
 
             # Tratando do owner da tabela
             try:
@@ -103,14 +122,6 @@ class ConverteModoEmpresaCommand(Command):
         Apaga tanto as associações com os dados, quanto os conjuntos em si, e suas associações com os estabelecimentos.
         """
 
-        sqls = [
-            'delete from ns.conjuntos where cadastro <> 13;',
-            'delete from ns.estabelecimentosconjuntos where cadastro <> 13;'
-        ]
-
-        for sql in sqls:
-            self.db_adapter.execute(sql)
-
         for cadastro in ConverteModoEmpresaCommand.CADASTROS:
             if cadastro == 13:
                 # Pulando conjunto de rubricas
@@ -118,6 +129,14 @@ class ConverteModoEmpresaCommand(Command):
 
             tabela = ConverteModoEmpresaCommand.CADASTROS[cadastro]
             sql = f"truncate ns.{tabela};"
+            self.db_adapter.execute(sql)
+
+        sqls = [
+            'delete from ns.estabelecimentosconjuntos where cadastro <> 13;',
+            'delete from ns.conjuntos where cadastro <> 13;'
+        ]
+
+        for sql in sqls:
             self.db_adapter.execute(sql)
 
     def list_grupos_empresariais(self):
@@ -134,7 +153,9 @@ class ConverteModoEmpresaCommand(Command):
         Cria novos conjuntos para um grupo empresarial, considerando todos os tipos de cadastro, com exceção do 13 (rubricas).
         """
 
-        sql = 'INSERT INTO ns.conjuntos (conjunto, descricao, cadastro, codigo) VALUES (:id, (:grupo_codigo || :grupo_codigo),  :cadastro, (:grupo_codigo || :grupo_codigo));',
+        sql = 'INSERT INTO ns.conjuntos (conjunto, descricao, cadastro, codigo) VALUES (:id, :descricao, :cadastro, :codigo)'
+
+        descricao = f"{grupo_empresarial['codigo']}{grupo_empresarial['codigo']}"
 
         ids_conjuntos = {}
         for cadastro in ConverteModoEmpresaCommand.CADASTROS:
@@ -144,7 +165,7 @@ class ConverteModoEmpresaCommand(Command):
 
             id = uuid.uuid4()
             self.db_adapter.execute(
-                sql, id=id, cadastro=cadastro, grupo_codigo=grupo_empresarial['codigo'])
+                sql, id=id, cadastro=cadastro, descricao=descricao, codigo=descricao)
             ids_conjuntos[cadastro] = id
 
         return ids_conjuntos
@@ -190,14 +211,14 @@ class ConverteModoEmpresaCommand(Command):
             tabela_conjunto = ConverteModoEmpresaCommand.CADASTROS[cadastro]
             sql = f"""
             insert into ns.{tabela_conjunto} (registro, conjunto)
-            select distinct registro, :conjunto from ns.{tabela_conjunto}_bkp as bkp
+            select distinct bkp.registro, (:conjunto)::uuid from {tabela_conjunto}_bkp as bkp
             join estabelecimentosconjuntos_bkp as ec_bkp on (bkp.conjunto = ec_bkp.conjunto)
-            join ns.estabelecimentos as est on (est.estebelecimento = ec_bkp.estabelecimento)
+            join ns.estabelecimentos as est on (est.estabelecimento = ec_bkp.estabelecimento)
             join ns.empresas as emp on (emp.empresa = est.empresa)
-            join ns.gruposempresariais as ge on (ge.gruposempresariais = emp.gruposempresariais
+            join ns.gruposempresariais as ge on (ge.grupoempresarial = emp.grupoempresarial
             and ge.grupoempresarial = :grupo_id)
             """
-            self.db_adapter.execute_query(
+            self.db_adapter.execute(
                 sql, conjunto=ids_conjuntos[cadastro], grupo_id=grupo_empresarial['grupoempresarial'])
 
     def main(self):
@@ -205,9 +226,13 @@ class ConverteModoEmpresaCommand(Command):
 
         start_time = time.time()
         try:
+
             # Verificando se o BD já está em modo contábil
             if self.is_modo_empresa():
                 raise Exception('Este banco já está em modo empresa.')
+
+            # Ajustando as permissões do BD
+            self.ajusta_persmissoes_group_nasajon()
 
             # Fazendo backup da estrutura de conjuntos:
             self.backup_conjuntos()
@@ -227,6 +252,9 @@ class ConverteModoEmpresaCommand(Command):
 
                 # Fazendo DE-PARA das permissões antigas (no backup), para os novos conjuntos:
                 self.copy_permissoes_dados(grupo_empresarial, ids_conjuntos)
+
+            # Atualizando a configuração para o modo empresa
+            self.set_modo_empresa()
         finally:
             self.log("--- TEMPO TOTAL GERAL %s seconds ---" %
                      (time.time() - start_time))
