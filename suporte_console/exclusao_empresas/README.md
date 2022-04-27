@@ -1,12 +1,13 @@
 # exclusao_empresas
 
-Script python, para uso via linha de comando, capaz de realizar a deleção de empresas de um banco de dados, com alta performance.
+Comando capaz de realizar a deleção de empresas de um banco de dados, com alta performance.
 
 ## Atenção
 
 Para alcançar melhor performance, foram tomadas medidas que impedem a utilização do script num banco de dados em produção, principalmente com usuários logados. O procedimento recomendado é:
 
 * Realizar a exclusão das empresas num backup da base de produção, numa ambinte controlado e passível de homologação após a execução do script.
+* Outra opção é utilizar o parâmetro ```-n```, para garantir que a execução se dará sobre uma base cópia da original.
 
 Após se alcançar maior nível de confiança nesse script, ainda assim não se deve contar com o mesmo para apagar dados de um banco com outros usuários conectados, pois o script remove FKs, e até mesmo trunca tabelas (o que pode quebrar um BD, no caso de conexões simultâneas).
 
@@ -23,32 +24,12 @@ Após se alcançar maior nível de confiança nesse script, ainda assim não se 
 
 **Assim, o script tem escopo de deleção limitado às tabelas contidas nas tabelas de controle (tabelas novas, se precisarem de deleção, precisão ser excluídas nas tabelas de controle, se não, serão ignoradas, e podem gerar erros futuros de FKs, nesse script). Essa mesma característica evita comportamentos imprevistos do script.**
 
-## Modo de uso
+## Parâmetros adicionais para a linha de comando
 
-1. Gerar um zip contendo todo os arquivos neste repositório.
-2. Instalar o python 3.9 na máquina a executar o script
-3. Copiar o arquivo ```requirements.txt```, contido na raiz do repositório corrente.
-4. Rodar o comando a seguir na máquina a executar o script:
-> python -m pip install -r requirements.txt
-5. Executar o script em si (ver sessão do manual da linha de comando)
+* **-e:** Lista de códigos das empresas a serem excluídas, separados por vírgula (```,```). Obs.: Se for necessário passar um código que contenha um caracter de espaçamento, é preciso envolver toda a lista de códigos das empresas, com aspas duplas (exemplo: ```"CODIGO1,CODIGO EMPRESA 2,CODIGO3"```).
+* **-s:** Etapa do processo de exclusão a ser executada. Valor padrão: `processo_basico`.
 
-## Manual da linha de comando
-
-Sintaxe básica de uso:
-
-> python exclusao_empresas.zip -d {NOME_BANCO} -e {LISTA_CODIGOS_EMPRESAS}
-
-Onde a LISTA_CODIGOS_EMPRESAS deve ser uma lista separada por vírgulas: ```,```
-
-**Vale destacar que esta sintaxe assume que será executado o processo básico de exclusão (ver sobre etapas a seguir), com o BD em máquina local, na porta ```5432```, com usuário ```postgres``` e senha ```postgres```.**
-
-### Parâmetros opcionais:
-
-* **-u:** Usuário para conexão com o banco de dados
-* **-p:** Senha para conexão com o banco de dados
-* **-t:** IP ou nome do servidor do banco de dados
-* **-o:** Porta para conexão com o banco de dados
-* **-s:** Etapa do processo de exclusão a ser executada.
+**Vale destacar que o valor padrão do parâmetro `-s`, assume que o processo básico de exclusão será executado (ver sobre etapas a seguir).**
 
 ### Sobre as etapas de execução
 
@@ -80,9 +61,34 @@ Assim, segue o significado de cada etapa suportada:
 
 Como já dito, esse script foi criado em caráter evolutivo, e cauteloso, de modo que não exclui tabelas que não estejam em sua estrutura de controle.
 
-Assim, possivelmente, o script pode acabar por não conseguir recriar todas as FKs removidas, ao final do processo, e isso precisa ser avaliado por um programador (de preferência do setor responsável pela tabela faltante, por exemplo, se houver um erro na tabela persona.trabalhadores deve-se convocar a equipe do persona).
+Assim, possivelmente, o script pode acabar por não conseguir recriar todas as FKs removidas, ao final do processo, e isso precisa ser notificado a um programador (de preferência do setor responsável pela tabela faltante, por exemplo, se houver um erro na tabela persona.trabalhadores deve-se convocar a equipe do persona), para que o mesmo evolua o script.
 
-No mais, o próprio script está preparado para esse processo adaptativo (por meio dos passos adicionais), não se perdendo todo o trabalho de deleção realizado até o momento do erro de FK.
+No entanto, o modo mais rápido de se recuperar após um erro, é remover manualmente os dados que faltaram ser excluídos, e recriar, manualmente, a FK que ficou pendente (e que foi notificada no LOG).
+
+### Exemplo de tratamento de erro
+
+Erro:
+> 2022-04-24 02:04:24,140 - exclusao_empresas - INFO - (pg8000.dbapi.ProgrammingError) {'S': 'ERROR', 'V': 'ERROR', 'C': '23503', 'M': 'insert or update on table "processoscodigosterceiros" violates foreign key constraint "FK_persona.processoscodigosterceiros_processo"', 'D': 'Key (processo)=(f9ac4b76-e4fb-4c28-a33b-2ab4024f05df) is not present in table "processos".', 's': 'persona', 't': 'processoscodigosterceiros', 'n': 'FK_persona.processoscodigosterceiros_processo', 'F': 'd:\\pginstaller.auto\\postgres.windows-x64\\src\\backend\\utils\\adt\\ri_triggers.c', 'L': '2783', 'R': 'ri_ReportViolation'}
+[SQL: ALTER TABLE persona."processoscodigosterceiros" ADD CONSTRAINT "FK_persona.processoscodigosterceiros_processo" FOREIGN KEY (processo) REFERENCES persona.processos(processo) DEFERRABLE;]
+(Background on this error at: https://sqlalche.me/e/14/f405)
+
+Passos de recuperação:
+
+1. Apagar dados faltantes (note que o comando de criação da FK que deu erro, contém todos os dados necessários para construir um SQL similar ao do exemplo abaixo):
+
+> delete from persona."processoscodigosterceiros" as t1 where not exists (select 1 from persona.processos as t2 where t1.processo=t2.processo);
+
+2. Recriar a FK na mão (copiando o comando do próprio erro):
+
+> ALTER TABLE persona."processoscodigosterceiros" ADD CONSTRAINT "FK_persona.processoscodigosterceiros_processo" FOREIGN KEY (processo) REFERENCES persona.processos(processo) DEFERRABLE;
+
+**Obs. 1: Não deixe de notificar o erro ao desenvolvimento, para que o script seja melhorado, e não incorra mais no mesmo erro.**
+
+**Obs. 2: Por mais manual que seja, esse é o caminho mais rápido de recuperação do erro, pois não exige mais buscas pelos relacionammentos entre as entidades sendo excluídas no BD (e, embora seja possível usar o script de modo incremental, a performance da busca não justifica essa opção).**
+
+### Observações para o pessoal do desenvolvimento
+
+O próprio script está preparado para esse processo adaptativo (por meio dos passos adicionais), não se perdendo todo o trabalho de deleção realizado até o momento do erro de FK.
 
 Em geral, os passos pós erro de FK serão:
 
@@ -95,7 +101,7 @@ Em geral, os passos pós erro de FK serão:
 7. Rodar o passo "ajuste_buffer"
 8. Rodar o passo "exclusao"
 
-Se ainda houver erros de FK, deve-se rodar repetidamente os passos acima. Se não:
+Se ainda houver erros de FK, pode-se rodar repetidamente os passos acima. Se não:
 
 1. Rodar o passo "apaga_buffer_temp"
 2. Recriar, manualmente, todas as FKs que geraram erros.
