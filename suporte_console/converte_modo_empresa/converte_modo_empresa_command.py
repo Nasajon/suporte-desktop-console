@@ -227,34 +227,48 @@ class ConverteModoEmpresaCommand(Command):
         start_time = time.time()
         try:
 
+            self.log('Iniciando conversão para o modo empresa')
+
             # Verificando se o BD já está em modo contábil
             if self.is_modo_empresa():
                 raise Exception('Este banco já está em modo empresa.')
 
             # Ajustando as permissões do BD
+            self.log('Ajustando permissoes do group nasajon')
             self.ajusta_persmissoes_group_nasajon()
 
             # Fazendo backup da estrutura de conjuntos:
+            self.log('Copiando a estrutura de conjuntos')
             self.backup_conjuntos()
 
             # Apagando a estrutura de conjuntos (com exceção da parte de rubricas)
+            self.log('Excluindo os conjuntos atuais')
             self.delete_conjuntos()
 
             # Tratando dos conjuntos para cada grupo empresarial
             for grupo_empresarial in self.list_grupos_empresariais():
+                self.log(
+                    f"Tratando o grupo empresarial {grupo_empresarial['codigo']}")
 
                 # Criando os novos conjuntos do grupo empresarial
+                self.log('Insrindo novos conjuntos')
                 ids_conjuntos = self.insert_novos_conjuntos(grupo_empresarial)
 
                 # Associando os novos conjuntos aos esabelecimentos do grupo
+                self.log(
+                    'Inserindo novas associações entre conjuntos e estabelecimentos')
                 self.insert_novas_associacoes_conjuntos_estabelecimentos(
                     grupo_empresarial, ids_conjuntos)
 
                 # Fazendo DE-PARA das permissões antigas (no backup), para os novos conjuntos:
+                self.log('Copiando permissões dos dados')
                 self.copy_permissoes_dados(grupo_empresarial, ids_conjuntos)
 
             # Atualizando a configuração para o modo empresa
+            self.log('Alterando a flag de conjfiguração do modo de instalação')
             self.set_modo_empresa()
+
+            self.log('Concluindo a conversão')
         finally:
             self.log("--- TEMPO TOTAL GERAL %s seconds ---" %
                      (time.time() - start_time))
