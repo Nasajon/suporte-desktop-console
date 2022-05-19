@@ -44,6 +44,8 @@ class DiagnosticoConjuntosCommand(Command):
             for chave in conseguiu_criar_uniques:
                 houve_erro = houve_erro or conseguiu_criar_uniques[chave]
 
+            # TODO Adicionar teste para verificar se há conjuntos compartilhados por mais de uma empresa ou grupo
+
             #####################################################
             # TENTANDO REMEDIAR BASES MAIS SIMPLES
             logger.info(

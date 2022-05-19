@@ -70,3 +70,11 @@ ID do comando (para o parâmetro ```-c```):
 > exclusao_empresas
 
 Comando destinado à exclusão (em alta performance) de empresas de um banco de dados. [Ver a documentação específica.](suporte_console/exclusao_empresas/README.md)
+
+### Diagnóstico de Conjuntos
+
+ID do comando (para o parâmetro ```-c```):
+
+> diagnostico_conjuntos
+
+Comando destinado a detecção de problemas de conjuntos numa base, tentativas de correção dos tais problemas, e criação de uniques para evitar novos problemas no futuro. [Ver a documentação específica.](suporte_console/diagnostico_conjuntos/README.md)
