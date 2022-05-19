@@ -1,4 +1,4 @@
-from db_adapter2 import DBAdapter2
+from suporte_console.db_adapter2 import DBAdapter2
 from typing import List
 
 

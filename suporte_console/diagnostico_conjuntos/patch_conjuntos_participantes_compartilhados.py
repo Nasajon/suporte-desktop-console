@@ -3,10 +3,10 @@ import logging
 import uuid
 
 from abc import ABC, abstractmethod
-from db_adapter2 import DBAdapter2
+from suporte_console.db_adapter2 import DBAdapter2
 from typing import Any, Callable, Dict, List, Tuple
 
-from registros import REGISTROS_DICT_REVERSE
+from suporte_console.diagnostico_conjuntos.registros import REGISTROS_DICT_REVERSE
 
 
 class PatchConjuntosParticipantesCompartilhados(ABC):
