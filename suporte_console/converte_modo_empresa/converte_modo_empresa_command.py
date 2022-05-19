@@ -215,8 +215,7 @@ class ConverteModoEmpresaCommand(Command):
             join estabelecimentosconjuntos_bkp as ec_bkp on (bkp.conjunto = ec_bkp.conjunto)
             join ns.estabelecimentos as est on (est.estabelecimento = ec_bkp.estabelecimento)
             join ns.empresas as emp on (emp.empresa = est.empresa)
-            join ns.gruposempresariais as ge on (ge.grupoempresarial = emp.grupoempresarial
-            and ge.grupoempresarial = :grupo_id)
+            where emp.grupoempresarial = :grupo_id
             """
             self.db_adapter.execute(
                 sql, conjunto=ids_conjuntos[cadastro], grupo_id=grupo_empresarial['grupoempresarial'])
