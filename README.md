@@ -11,18 +11,14 @@ Se for necessário utilizar num ambiente de produção, deve-se utilizar o parâ
 
 ## Modo de uso
 
-1. Baixar o zip "suporte-console.zip" mais recente, contido na página de [releases do projeto.](https://github.com/Nasajon/suporte-desktop-console/releases)
-2. Instalar o python 3.9 na máquina a executar o script
-3. Copiar o arquivo ```requirements.txt```, contido na raiz do repositório corrente.
-4. Rodar o comando a seguir na máquina a executar o script (para instalar as dependências do projeto):
-> python -m pip install -r requirements.txt
-5. Executar o script em si (ver sessão do manual da linha de comando).
+1. Baixar o `.exe` "suporte-console.exe" mais recente, contido na página de [releases do projeto.](https://github.com/Nasajon/suporte-desktop-console/releases)
+2. Executar o script em si (ver sessão do manual da linha de comando).
 
 ## Manual da linha de comando
 
 Sintaxe básica de uso:
 
-> python ./dist/suporte-console.zip -d {NOME_BANCO} -n {NOME_NOVO_BANCO_TRATADO} -c {COMANDO_DESEJADO}
+> ./dist/suporte-console.exe -d {NOME_BANCO} -n {NOME_NOVO_BANCO_TRATADO} -c {COMANDO_DESEJADO}
 
 **Vale destacar que esta sintaxe assume os valores padrões de acesso ao BD: porta ```5432```, usuário ```postgres``` e ```postgres```.**
 
