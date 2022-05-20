@@ -78,3 +78,19 @@ ID do comando (para o parâmetro ```-c```):
 > diagnostico_conjuntos
 
 Comando destinado a detecção de problemas de conjuntos numa base, tentativas de correção dos tais problemas, e criação de uniques para evitar novos problemas no futuro. [Ver a documentação específica.](suporte_console/diagnostico_conjuntos/README.md)
+
+## Empactoando para Disrtibuição
+
+O comando pode ser empacotado em zip ou exe.
+
+Caso se opte pelo zip, é necessário instalar o Python3.9 (ou maior, ainda dentro da versão 3) e todas as dependências no arquivo requirements.txt, no ambiente que for executado. Já o arquivo executável, pode ser rodado de modo por si só.
+
+Os comandos para empacotar serão apresentados a seguir, mas ambos exportarão para o disretório `dist`:
+
+### ZIP
+
+> python empacotar.py
+
+### EXE
+
+> ./run-pyinstaller.bat
