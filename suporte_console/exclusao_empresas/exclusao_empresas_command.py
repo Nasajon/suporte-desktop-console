@@ -41,7 +41,7 @@ STEPS_PROCESSO_BASICO = ['melhorias_modelagem', 'criacao_buffer',
 
 class ExclusaoEmpresasCommand(Command):
 
-    def config_logger_fks():
+    def config_logger_fks(self):
         # Configuring logger
         data = datetime.datetime.now()
         log_file_name = f"fks - {data.year}-{data.month}-{data.day}-{data.hour}-{data.minute}.log"
@@ -78,7 +78,7 @@ class ExclusaoEmpresasCommand(Command):
                 default='processo_basico'
             )
 
-            args = parser.parse_args()
+            args, _ = parser.parse_known_args()
             step_id = args.step
             empresas = args.empresas
 

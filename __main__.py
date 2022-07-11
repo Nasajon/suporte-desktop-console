@@ -165,7 +165,7 @@ def main():
             "-c", "--command", help="Comando a ser executado.", required=True)
 
         # Read arguments from command line
-        args = parser.parse_args()
+        args, _ = parser.parse_known_args()
 
         internal_main(
             args.database,
