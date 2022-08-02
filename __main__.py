@@ -4,6 +4,8 @@ import logging
 import sys
 import time
 
+from typing import List
+
 from suporte_console.database_config import create_pool
 from suporte_console.db_adapter2 import DBAdapter2
 
@@ -76,6 +78,7 @@ def clone_database(
 
 
 def internal_main(
+    pars: List[str],
     database_name: str,
     database_user: str,
     database_pass: str,
@@ -126,7 +129,7 @@ def internal_main(
 
             # Executando o comando
             command_obj = COMMANDS[command](db_adapter, command)
-            command_obj.main()
+            command_obj.main(pars)
 
     finally:
         logger.info("--- TEMPO TOTAL GERAL %s seconds ---" %
@@ -134,7 +137,7 @@ def internal_main(
 
 
 def main():
-
+    interative_mode = False
     try:
         # Configuring logger
         config_logger()
@@ -164,10 +167,44 @@ def main():
         parser.add_argument(
             "-c", "--command", help="Comando a ser executado.", required=True)
 
-        # Read arguments from command line
-        args, _ = parser.parse_known_args()
+        # Check if is interative mode
+        interative_mode = is_interative_mode()
 
+        # Read arguments from command line or console
+        cli_pars = sys.argv[1:]
+        if interative_mode:
+            aguarda_args = True
+            exit = False
+            while aguarda_args:
+                try:
+                    user_input = input(
+                        'Adicione os parâmetros desejados para a execução do SuporteConsole\n')
+                    user_input = user_input.replace('\r', '')
+                    user_input = user_input.replace('\n', '')
+
+                    if user_input.lower() in ['q', 'quit', 'exit']:
+                        exit = True
+                        break
+                    else:
+                        pars = cli_pars + user_input.split(' ')
+
+                        # Interpreting args
+                        args, _ = parser.parse_known_args(pars)
+
+                        aguarda_args = False
+                except:
+                    pass
+
+            if exit:
+                sys.exit(-1)
+        else:
+            # Interpreting args
+            pars = cli_pars
+            args, _ = parser.parse_known_args(pars)
+
+        # Calling internal main
         internal_main(
+            pars,
             args.database,
             args.user,
             args.password,
@@ -177,11 +214,38 @@ def main():
             args.database_default_name,
             args.new_database
         )
+
+        if interative_mode:
+            input('Enter para terminar')
+
         sys.exit(0)
     except Exception as e:
         logger.exception(
             f'Erro fatal. Mensagem original do erro {e}')
+        if interative_mode:
+            input('Enter para terminar')
         sys.exit(5)
+
+
+def is_interative_mode() -> bool:
+    # Initialize parser
+    parser = argparse.ArgumentParser(
+        description=''
+    )
+
+    # Adding arguments
+    parser.add_argument(
+        "-v",
+        "--interative",
+        help="Nome do banco de dados criado pelo procedimento",
+        required=False,
+        action='store_true'
+    )
+
+    # Read arguments from command line
+    args, _ = parser.parse_known_args()
+
+    return args.interative
 
 
 if __name__ == '__main__':

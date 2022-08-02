@@ -220,7 +220,7 @@ class ConverteModoEmpresaCommand(Command):
             self.db_adapter.execute(
                 sql, conjunto=ids_conjuntos[cadastro], grupo_id=grupo_empresarial['grupoempresarial'])
 
-    def main(self):
+    def main(self, pars: List[str]):
         # self.config_logger()
 
         start_time = time.time()

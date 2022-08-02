@@ -4,6 +4,8 @@ import logging
 import sys
 import time
 
+from typing import List
+
 from suporte_console.command import Command
 
 from suporte_console.exclusao_empresas.ajuste_buffer_step import AjusteBufferStep
@@ -56,7 +58,7 @@ class ExclusaoEmpresasCommand(Command):
 
         logger.addHandler(file_handler)
 
-    def main(self):
+    def main(self, pars: List[str]):
         self.config_logger_fks()
 
         logger = logging.getLogger(self.command_id)
@@ -86,7 +88,7 @@ class ExclusaoEmpresasCommand(Command):
                 action='store_true'
             )
 
-            args, _ = parser.parse_known_args()
+            args, _ = parser.parse_known_args(pars)
             step_id = args.step
             empresas = args.empresas
             invert_selecao = args.invert

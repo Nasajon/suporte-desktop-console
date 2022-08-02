@@ -3,6 +3,8 @@ import logging
 import sys
 
 from abc import ABC, abstractmethod
+from typing import List
+
 from suporte_console.db_adapter2 import DBAdapter2
 
 
@@ -55,5 +57,5 @@ class Command(ABC):
         logger.exception(msg)
 
     @abstractmethod
-    def main(self):
+    def main(self, pars: List[str]):
         pass

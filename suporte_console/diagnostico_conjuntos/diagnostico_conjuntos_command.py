@@ -1,6 +1,8 @@
 import logging
 import time
 
+from typing import List
+
 from suporte_console.command import Command
 from suporte_console.diagnostico_conjuntos.handler_uniques import HandlerUniques
 from suporte_console.diagnostico_conjuntos.patch_recriar_estrutura_conjuntos import PatchRecriarEstruturaConjuntos
@@ -20,7 +22,7 @@ PATCHES = {
 
 class DiagnosticoConjuntosCommand(Command):
 
-    def main(self):
+    def main(self, pars: List[str]):
 
         start_time = time.time()
         try:
