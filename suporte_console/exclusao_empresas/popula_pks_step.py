@@ -35,7 +35,7 @@ class PopularPKsStep(Step):
         """
         self.db_adapter.execute(sql)
 
-    def main(self, data: str):
+    def main(self, data: str, invert_selecao: bool):
         self.log(
             'Populando as PKs faltantes na tabela de controle exclusao.entidades...')
         self.popula_pks_nulas()

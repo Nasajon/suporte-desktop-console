@@ -224,7 +224,7 @@ class ExclusaoStep(Step):
         for fk in fks:
             logger.info(fk['script'])
 
-    def main(self, data: str):
+    def main(self, data: str, invert_selecao: bool):
         self.log(
             'Iniciando exclusão real dos dados...')
 

@@ -78,9 +78,18 @@ class ExclusaoEmpresasCommand(Command):
                 default='processo_basico'
             )
 
+            parser.add_argument(
+                "-i",
+                "--invert",
+                help=f"Permite inverter a seleção de empresas (a lista de empresas será entendida como as empresas a manter no BD, e não as empesas a excluir).",
+                required=False,
+                action='store_true'
+            )
+
             args, _ = parser.parse_known_args()
             step_id = args.step
             empresas = args.empresas
+            invert_selecao = args.invert
 
             # Resolvendo os passos a executar
             steps = [step_id]
@@ -94,7 +103,7 @@ class ExclusaoEmpresasCommand(Command):
             # Executando cada step
             for id in steps:
                 step_obj = STEPS[id](self.db_adapter)
-                step_obj.main(empresas)
+                step_obj.main(empresas, invert_selecao)
 
         finally:
             self.log("--- TEMPO TOTAL GERAL %s seconds ---" %

@@ -49,7 +49,7 @@ class CriacaoBufferStep(Step):
         # """
         # db_adapter.execute(sql)
 
-    def main(self, data: str):
+    def main(self, data: str, invert_selecao: bool):
         self.log(
             'Criando tabelas de buffer do processo de exclusão...')
 

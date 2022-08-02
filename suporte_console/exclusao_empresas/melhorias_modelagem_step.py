@@ -6632,7 +6632,7 @@ class MelhoriasModelagemStep(Step):
         except Exception as e:
             return False
 
-    def main(self, data: str):
+    def main(self, data: str, invert_selecao: bool):
         self.log(
             'Aplicando ajustes no BD, e criando estrutura básica de controle do processo de exclusão...')
 

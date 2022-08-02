@@ -1,6 +1,7 @@
 import logging
 
 from abc import ABC, abstractmethod
+from xmlrpc.client import boolean
 from suporte_console.db_adapter2 import DBAdapter2
 
 
@@ -17,5 +18,5 @@ class Step(ABC):
         logger.info(msg)
 
     @abstractmethod
-    def main(self, data: str):
+    def main(self, data: str, invert_selecao: boolean):
         pass

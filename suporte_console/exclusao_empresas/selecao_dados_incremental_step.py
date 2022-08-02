@@ -80,15 +80,20 @@ class SelecaoDadosIncrementalStep(Step):
 
         return (visitados, ordem_dependencias)
 
-    def get_ids_empresas(self, codigos_empresas: str):
+    def get_ids_empresas(self, codigos_empresas: str, invert_selecao: bool):
         # Tratando os códigos das empresas
         codigos = codigos_empresas.split(',')
         codigos = [c for c in codigos if c != '']
 
         # Fazendo a consulta no BD
-        sql = """
-        select empresa as id from ns.empresas as e where e.codigo in :codigos_empresas
-        """
+        if not invert_selecao:
+            sql = """
+            select empresa as id from ns.empresas as e where e.codigo in :codigos_empresas
+            """
+        else:
+            sql = """
+            select empresa as id from ns.empresas as e where e.codigo not in :codigos_empresas
+            """
 
         ids = self.db_adapter.execute_query(
             sql, codigos_empresas=tuple(codigos))
@@ -235,7 +240,7 @@ class SelecaoDadosIncrementalStep(Step):
                     if qtd_inseridas <= 0:
                         break
 
-    def main(self, data: str):
+    def main(self, data: str, invert_selecao: bool):
         self.log(
             'Selecionando os dados a excluir (de modo incremental, e mais lento), de acordo com suas dependências para as empresas (populando os buffers de dados da exclusão)...')
 
@@ -257,7 +262,7 @@ class SelecaoDadosIncrementalStep(Step):
             self.log(vertice.id)
 
         # Populando as chaves para exclusao
-        ids_empresas = self.get_ids_empresas(data)
+        ids_empresas = self.get_ids_empresas(data, invert_selecao)
         self.popula_chaves_para_exclusao(
             grafo,
             ordem,

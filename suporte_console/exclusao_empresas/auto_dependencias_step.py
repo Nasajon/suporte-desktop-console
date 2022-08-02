@@ -64,7 +64,7 @@ class AutoDependenciasStep(Step):
             column=fk_ref['column']
         )
 
-    def main(self, data: str):
+    def main(self, data: str, invert_selecao: bool):
         self.log(
             'Inserindo FKs faltantes, na tabela de controle das dependencias...')
 

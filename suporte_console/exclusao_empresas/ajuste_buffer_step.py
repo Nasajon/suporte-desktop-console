@@ -50,7 +50,7 @@ class AjusteBufferStep(Step):
         """
         self.db_adapter.execute(sql)
 
-    def main(self, data: str):
+    def main(self, data: str, invert_selecao: bool):
         self.log(
             'Ajustando tabelas de seleção (para haver unicidade nos registros)...')
 
