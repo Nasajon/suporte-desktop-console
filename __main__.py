@@ -12,11 +12,13 @@ from suporte_console.db_adapter2 import DBAdapter2
 from suporte_console.converte_modo_empresa.converte_modo_empresa_command import ConverteModoEmpresaCommand
 from suporte_console.diagnostico_conjuntos.diagnostico_conjuntos_command import DiagnosticoConjuntosCommand
 from suporte_console.exclusao_empresas.exclusao_empresas_command import ExclusaoEmpresasCommand
+from suporte_console.unifica_grupos_empresariais.unifica_grupos_empresariais_command import UnificaGruposEmpresariaisCommand
 
 COMMANDS = {
     'exclusao_empresas': ExclusaoEmpresasCommand,
     'converte_modo_empresa': ConverteModoEmpresaCommand,
-    'diagnostico_conjuntos': DiagnosticoConjuntosCommand
+    'diagnostico_conjuntos': DiagnosticoConjuntosCommand,
+    'unifica_grupos_empresariais': UnificaGruposEmpresariaisCommand,
 }
 
 
