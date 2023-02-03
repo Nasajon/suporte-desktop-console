@@ -310,6 +310,7 @@ class UnificaGruposEmpresariaisCommand(Command):
     def tratar_casos_especiais(self, id_grupo_destino: uuid.UUID, ids_grupos_origem: uuid.UUID):
 
         # tabela ns.configuracoesnumeracoesdnf
+        self.log(f"Tabela especial: ns.configuracoesnumeracoesdnf.")
         self.backup_tabela('ns', 'configuracoesnumeracoesdnf')
         self.tratar_configuracoesnumeracoesdnf(
             id_grupo_destino, ids_grupos_origem)
@@ -318,7 +319,7 @@ class UnificaGruposEmpresariaisCommand(Command):
 
         # Recuperando as configurações do grupo de destino (para geração automática ou semi automática)
         sql = """
-        SELECT confioguracaonumeracaodnf, entidade, proximonumero FROM ns.configuracoesnumeracoesdnf where tiponumeracao in (0,1) and modogeracao=0 and grupoempresarial=:grupo
+        SELECT configuracaonumeracaodnf, entidade, proximonumero FROM ns.configuracoesnumeracoesdnf where tiponumeracao in (0,1) and modogeracao=0 and grupoempresarial=:grupo
         """
 
         configuracoes_destino = self.db_adapter.execute_query(
@@ -337,15 +338,19 @@ class UnificaGruposEmpresariaisCommand(Command):
             # Resolvendo o maior próximo número
             proximo_numero = config_destino['proximonumero']
             for config_origem in configuracoes_origem:
-                if proximo_numero < config_origem['proximonumero']:
+                if config_origem['proximonumero'] is None:
+                    continue
+
+                if (proximo_numero or 0) < config_origem['proximonumero']:
                     proximo_numero = config_origem['proximonumero']
 
             # Atualizando o próximo número do destino (para o maior dentre todos os equivalentes nos outros grupos)
-            sql = """
-            update ns.configuracoesnumeracoesdnf set proximonumero=:proximo_numero where confioguracaonumeracaodnf=:id
-            """
-            self.db_adapter.execute(
-                sql, proximo_numero=proximo_numero, id=config_destino['confioguracaonumeracaodnf'])
+            if proximo_numero is not None:
+                sql = """
+                update ns.configuracoesnumeracoesdnf set proximonumero=:proximo_numero where configuracaonumeracaodnf=:id
+                """
+                self.db_adapter.execute(
+                    sql, proximo_numero=proximo_numero, id=config_destino['configuracaonumeracaodnf'])
 
         # Copiando as configurações que eventualmente não existissem no destino
         # Obs.: Uma configuração (dentre as muitas possíveis, para os grupos empresariais de origem, é selecionada aleatoriamente)
@@ -418,8 +423,11 @@ class UnificaGruposEmpresariaisCommand(Command):
             self.ajusta_persmissoes_group_nasajon()
 
             if self.is_modo_empresa():
+                self.log(
+                    'Banco em modo empresa, será necessário alterar as estruturas dos conjuntos.')
+
                 # Fazendo backup da estrutura de conjuntos:
-                self.log('Copiando a estrutura de conjuntos')
+                self.log('Criando um backup da estrutura de conjuntos')
                 self.backup_conjuntos()
 
                 # Recuperando os conjuntos (por tipo de cadastro), do grupo empresarial de destino
@@ -433,18 +441,24 @@ class UnificaGruposEmpresariaisCommand(Command):
                 # Migrando os dados de cada conjunto de origem, para o destino correspondente
                 for conjunto in conjuntos_origem:
                     # Migrando os dados
+                    self.log(
+                        f"Migrando os dados do conjunto {conjunto['conjunto']}, para o conjunto {conjuntos_destino[conjunto['cadastro']]}.")
                     self.migra_dados_conjunto(
                         conjunto['cadastro'], conjunto['conjunto'], conjuntos_destino[conjunto['cadastro']])
 
                     # Migrando os estabelecimentos
+                    self.log(
+                        f"Migrando a associação do estabelecimentos do conjunto {conjunto['conjunto']}, para o conjunto {conjuntos_destino[conjunto['cadastro']]}.")
                     self.migra_estabelecimentos_conjunto(
                         conjunto['cadastro'], conjunto['conjunto'], conjuntos_destino[conjunto['cadastro']])
 
                     # Excluíndo o conjunto de origem
+                    self.log(f"Excluindo o conjunto {conjunto['conjunto']}.")
                     self.excluir_conjunto(
                         conjunto['cadastro'], conjunto['conjunto'])
 
             # Fazendo backup dos grupos_empresariais
+            self.log(f"Fazendo backup dos grupos_empresariais.")
             self.backup_grupos_empresariais()
 
             # Recuperando os ids dos grupos empresariais envolvidos
@@ -452,17 +466,22 @@ class UnificaGruposEmpresariaisCommand(Command):
             id_grupo_destino = self.get_ids_grupos([grupo_destino])[0]
 
             # Reponterando as tabelas que apontavam para os grupos empresariais de origem para o destino
+            self.log(
+                f"Reponterando as tabelas que apontavam para os grupos empresariais de origem para o destino.")
             for sql in self.QUERIES_GRUPOS_EMPRESARIAIS:
                 try:
+                    self.log(f"QUERY: {sql}")
                     self.db_adapter.execute(
                         sql, grupo_destino=id_grupo_destino, grupos_origem=tuple(ids_grupos_origem))
                 except Exception as e:
                     self.log_exception(f"Erro executando query: {sql}")
 
             # Tratando casos especiais
+            self.log(f"Tratando casos especiais.")
             self.tratar_casos_especiais(id_grupo_destino, ids_grupos_origem)
 
             # Excluindo os grupos_empresariais
+            self.log(f"Excluindo os grupos empresariais unificados.")
             self.excluir_grupos_empresariais(ids_grupos_origem)
 
             # Notificando o fim do processamento

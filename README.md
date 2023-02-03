@@ -75,6 +75,21 @@ ID do comando (para o parâmetro ```-c```):
 
 Comando destinado a detecção de problemas de conjuntos numa base, tentativas de correção dos tais problemas, e criação de uniques para evitar novos problemas no futuro. [Ver a documentação específica.](suporte_console/diagnostico_conjuntos/README.md)
 
+### Unificando Grupos Empresariais
+
+ID do comando (para o parâmetro ```-c```):
+
+> unifica_grupos_empresariais
+
+Comando destinado a unificação de grupos empresariais, passando todas as associações de dados (conjuntos), e configurações de N grupos de origem, para um único grupo de destino.
+
+Obs.: As tratativas de conjunto são necessárias apenas para bancos no Modo Empresa.
+
+#### Parâmetros adicionais para a linha de comando
+
+* **-r ou --origem:** Lista de códigos dos grupos empresariais a serem excluídos (terão os dados migrados para o grupo de destino), separados por vírgula (```,```). Obs.: Se for necessário passar um código que contenha um caracter de espaçamento, é preciso envolver toda a lista de códigos das empresas, com aspas duplas (exemplo: ```"CODIGO1,CODIGO EMPRESA 2,CODIGO3"```).
+* **-i ou --destino:** Código do grupo empresarial que permancerá na base (recebendo os dados e configurações dos grupos de origem). Este parâmetro não aceita uma lista, e caso haja um caracter de espaçamento, é preciso envolver o código com aspas duplas (exemplo: ```"CODIGO GRUPO"```).
+
 ## Empactoando para Disrtibuição
 
 O comando pode ser empacotado em zip ou exe.
