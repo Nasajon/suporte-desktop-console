@@ -94,7 +94,7 @@ class UnificaGruposEmpresariaisCommand(Command):
         'update ns.atributos set id_grupoempresarial=:grupo_destino where id_grupoempresarial in :grupos_origem',
         'update ns.configuracoes set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update ns.configuracoescategoriasporclassfinan set id_grupoempresarial=:grupo_destino where id_grupoempresarial in :grupos_origem',
-        'update ns.configuracoesnumeracoesdnf set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
+        # 'update ns.configuracoesnumeracoesdnf set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update ns.destinos_sincronizacao_gruposempresariais set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update ns.df_docfis set id_grupoempresarial=:grupo_destino where id_grupoempresarial in :grupos_origem',
         'update ns.documentosgeddetalhes set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
@@ -187,8 +187,8 @@ class UnificaGruposEmpresariaisCommand(Command):
 
     def migra_dados_conjunto(self, tipo_cadastro: int, conjunto_origem: uuid.UUID, conjunto_destino: uuid.UUID):
 
-        tabela = UnificaGruposEmpresariaisCommand.CADASTROS[tipo_cadastro]
-        sql = f"update {tabela} set conjunto=:conjunto_destino where conjunto=:conjunto_origem"
+        tabela = self.CADASTROS[tipo_cadastro]
+        sql = f"update ns.{tabela} set conjunto=:conjunto_destino where conjunto=:conjunto_origem"
         self.db_adapter.execute(
             sql, conjunto_origem=conjunto_origem, conjunto_destino=conjunto_destino)
 
@@ -224,6 +224,53 @@ class UnificaGruposEmpresariaisCommand(Command):
         sql = f"delete from ns.gruposempresariais where grupoempresarial in :grupos"
         self.db_adapter.execute(sql, grupos=tuple(ids_grupos_empresariais))
 
+    def backup_conjuntos(self):
+        """
+        Cria tabelas para backup completo da estrautura de conjuntos do BD (os conjuntos em si,
+        suas associações com os estabelecimentos e com os dados).
+        """
+
+        # Copiando tabelas de estrutura
+        sqls = [
+            'create table conjuntos_bkp as select * from ns.conjuntos;',
+            'create table estabelecimentosconjuntos_bkp as select * from ns.estabelecimentosconjuntos;'
+        ]
+
+        for sql in sqls:
+            try:
+                self.db_adapter.execute(sql)
+            except Exception as e:
+                self.log_warning(f'Problema ao criar tabela de backup: {e}')
+
+        # Tratando do owner destas tabelas
+        try:
+            sqls = [
+                'alter table conjuntos_bkp owner to group_nasajon;'
+                'alter table estabelecimentosconjuntos_bkp owner to group_nasajon;'
+            ]
+
+            for sql in sqls:
+                self.db_adapter.execute(sql)
+        except:
+            pass
+
+        # Copiando tabelas de cadastro
+        for cadastro in self.CADASTROS:
+            tabela = self.CADASTROS[cadastro]
+
+            try:
+                sql = f"create table {tabela}_bkp as select * from ns.{tabela};"
+                self.db_adapter.execute(sql)
+            except Exception as e:
+                self.log_warning(f'Problema ao criar tabela de backup: {e}')
+
+            # Tratando do owner da tabela
+            try:
+                sql = f"alter table {tabela}_bkp owner to group_nasajon;"
+                self.db_adapter.execute(sql)
+            except:
+                pass
+
     def backup_grupos_empresariais(self):
 
         # Criando tabela de backup
@@ -231,14 +278,114 @@ class UnificaGruposEmpresariaisCommand(Command):
             sql = "create table gruposempresariais_bkp as select * from ns.gruposempresariais"
             self.db_adapter.execute(sql)
         except Exception as e:
-            self.log_warning(f'Problema ao criar tabela de backup: {e}')
+            self.log_warning(
+                f'Problema ao criar tabela de backup: {e} - Origem grupo empresarial')
 
         # Tratando do owner da tabela de backup
         try:
             sql = f"alter table gruposempresariais_bkp owner to group_nasajon;"
             self.db_adapter.execute(sql)
         except:
-            pass
+            self.log_warning(
+                f'Erro ao dar permissão para tabela de backup: {e} - Origem grupo emprearial')
+
+    def backup_tabela(self, schema: str, tabela: str):
+
+        # Criando tabela de backup
+        try:
+            sql = f"create table {tabela}_bkp as select * from {schema}.{tabela}"
+            self.db_adapter.execute(sql)
+        except Exception as e:
+            self.log_warning(
+                f'Problema ao criar tabela de backup: {e} - Origem {schema}.{tabela}')
+
+        # Tratando do owner da tabela de backup
+        try:
+            sql = f"alter table {tabela}_bkp owner to group_nasajon;"
+            self.db_adapter.execute(sql)
+        except:
+            self.log_warning(
+                f'Erro ao dar permissão para tabela de backup: {e} - Origem {schema}.{tabela}')
+
+    def tratar_casos_especiais(self, id_grupo_destino: uuid.UUID, ids_grupos_origem: uuid.UUID):
+
+        # tabela ns.configuracoesnumeracoesdnf
+        self.backup_tabela('ns', 'configuracoesnumeracoesdnf')
+        self.tratar_configuracoesnumeracoesdnf(
+            id_grupo_destino, ids_grupos_origem)
+
+    def tratar_configuracoesnumeracoesdnf(self, id_grupo_destino: uuid.UUID, ids_grupos_origem: uuid.UUID):
+
+        # Recuperando as configurações do grupo de destino (para geração automática ou semi automática)
+        sql = """
+        SELECT confioguracaonumeracaodnf, entidade, proximonumero FROM ns.configuracoesnumeracoesdnf where tiponumeracao in (0,1) and modogeracao=0 and grupoempresarial=:grupo
+        """
+
+        configuracoes_destino = self.db_adapter.execute_query(
+            sql, grupo=id_grupo_destino)
+
+        # Tratando cada configuração de destino
+        for config_destino in configuracoes_destino:
+            # Recuperando as configurações equivalentes para os grupos de origem
+            sql = """
+            SELECT proximonumero FROM ns.configuracoesnumeracoesdnf where tiponumeracao in (0,1) and modogeracao=0 and grupoempresarial in :grupos and entidade=:entidade
+            """
+
+            configuracoes_origem = self.db_adapter.execute_query(
+                sql, grupos=tuple(ids_grupos_origem), entidade=config_destino['entidade'])
+
+            # Resolvendo o maior próximo número
+            proximo_numero = config_destino['proximonumero']
+            for config_origem in configuracoes_origem:
+                if proximo_numero < config_origem['proximonumero']:
+                    proximo_numero = config_origem['proximonumero']
+
+            # Atualizando o próximo número do destino (para o maior dentre todos os equivalentes nos outros grupos)
+            sql = """
+            update ns.configuracoesnumeracoesdnf set proximonumero=:proximo_numero where confioguracaonumeracaodnf=:id
+            """
+            self.db_adapter.execute(
+                sql, proximo_numero=proximo_numero, id=config_destino['confioguracaonumeracaodnf'])
+
+        # Copiando as configurações que eventualmente não existissem no destino
+        # Obs.: Uma configuração (dentre as muitas possíveis, para os grupos empresariais de origem, é selecionada aleatoriamente)
+        sql = """
+        select
+            d.grupoempresarial, d.entidade, d.tiponumeracao, d.modogeracao, d.codigo, d.descricao, d.mascara, d.novomodelo, d.proximonumero
+        from
+            ns.configuracoesnumeracoesdnf as o
+            left join ns.configuracoesnumeracoesdnf as d on (
+                d.entidade = o.entidade
+                and d.configuracaonumeracaodnf <> o.configuracaonumeracaodnf
+                and d.grupoempresarial = :grupo_destino
+            )
+        where
+            o.grupoempresarial in :grupos
+            and d.configuracaonumeracaodnf is null
+        """
+        configuracoes_origem = self.db_adapter.execute_query(
+            sql, grupos=tuple(ids_grupos_origem), grupo_destino=id_grupo_destino)
+        entidades_resolvidas = set()
+
+        for config_origem in configuracoes_origem:
+            if config_destino['entidade'] in entidades_resolvidas:
+                continue
+
+            sql = """
+            insert into ns.configuracoesnumeracoesdnf (
+            grupoempresarial, entidade, tiponumeracao, modogeracao, codigo, descricao, mascara, novomodelo, proximonumero)
+            values (:grupoempresarial, :entidade, :tiponumeracao, :modogeracao, :codigo, :descricao, :mascara, :novomodelo, :proximonumero)
+            """
+            self.db_adapter.execute(sql, grupoempresarial=id_grupo_destino, entidade=config_origem['entidade'], tiponumeracao=config_origem['tiponumeracao'], modogeracao=config_origem['modogeracao'], codigo=config_origem[
+                                    'codigo'], descricao=config_origem['descricao'], mascara=config_origem['mascara'], novomodelo=config_origem['novomodelo'], proximonumero=config_origem['proximonumero'])
+
+            entidades_resolvidas.add(config_origem['entidade'])
+
+        # Excluindo as configurações dos grupos de origem
+        sql = """
+        delete from ns.configuracoesnumeracoesdnf where grupoempresarial in :grupos
+        """
+        self.db_adapter.execute(sql, grupos=tuple(ids_grupos_origem))
 
     def main(self, pars: List[str]):
         # self.config_logger()
@@ -302,12 +449,18 @@ class UnificaGruposEmpresariaisCommand(Command):
 
             # Recuperando os ids dos grupos empresariais envolvidos
             ids_grupos_origem = self.get_ids_grupos(grupos_origem)
-            id_grupo_destino = self.get_ids_grupos(grupo_destino)[0]
+            id_grupo_destino = self.get_ids_grupos([grupo_destino])[0]
 
             # Reponterando as tabelas que apontavam para os grupos empresariais de origem para o destino
             for sql in self.QUERIES_GRUPOS_EMPRESARIAIS:
-                self.db_adapter.execute(
-                    sql, grupo_destino=id_grupo_destino, grupos_origem=tuple(ids_grupos_origem))
+                try:
+                    self.db_adapter.execute(
+                        sql, grupo_destino=id_grupo_destino, grupos_origem=tuple(ids_grupos_origem))
+                except Exception as e:
+                    self.log_exception(f"Erro executando query: {sql}")
+
+            # Tratando casos especiais
+            self.tratar_casos_especiais(id_grupo_destino, ids_grupos_origem)
 
             # Excluindo os grupos_empresariais
             self.excluir_grupos_empresariais(ids_grupos_origem)

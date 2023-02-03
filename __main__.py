@@ -239,7 +239,7 @@ def is_interative_mode() -> bool:
     parser.add_argument(
         "-v",
         "--interative",
-        help="Nome do banco de dados criado pelo procedimento",
+        help="Inidica se o comando deve ser executado de modo iterativo (com entradas do usuário após execução).",
         required=False,
         action='store_true'
     )
