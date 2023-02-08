@@ -1,4 +1,5 @@
 import argparse
+import copy
 import time
 import uuid
 
@@ -63,7 +64,7 @@ class UnificaGruposEmpresariaisCommand(Command):
         'update financas.cenariosorcamentarios set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update financas.centroscustos set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update financas.chequescustodias set id_grupoempresarial=:grupo_destino where id_grupoempresarial in :grupos_origem',
-        'update financas.classificacoesfinanceiras set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
+        # 'update financas.classificacoesfinanceiras set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update financas.clientesenviadosserasa set id_grupoempresarial=:grupo_destino where id_grupoempresarial in :grupos_origem',
         'update financas.configuracoescontasinvestimentos set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update financas.configuracoesfluxocaixa set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
@@ -314,6 +315,41 @@ class UnificaGruposEmpresariaisCommand(Command):
         self.backup_tabela('ns', 'configuracoesnumeracoesdnf')
         self.tratar_configuracoesnumeracoesdnf(
             id_grupo_destino, ids_grupos_origem)
+
+        # tabela financas.classificacoesfinanceiras
+        self.log(f"Tabela especial: financas.classificacoesfinanceiras.")
+        self.backup_tabela('financas', 'classificacoesfinanceiras')
+        self.tratar_classificacoesfinanceiras(
+            id_grupo_destino, ids_grupos_origem)
+
+    def tratar_classificacoesfinanceiras(self, id_grupo_destino: uuid.UUID, ids_grupos_origem: List[uuid.UUID]):
+
+        grupos = copy.deepcopy(ids_grupos_origem)
+        grupos.append(id_grupo_destino)
+
+        # Adicionando o codigo dos grupos empresariais no início do código das classificações financeiras repetidas entre os grupos
+        # de origem (há uma UK que não permite mais de uma classificação com mesmo código num mesmo grupo; mas, como estamos unificando
+        # # grupos, é necessário antes remediar as repeitos, no caso, adicionando o código do grupo no no código das classficações
+        # # repetidas):
+        sql = """
+        with codigos_repetido as (
+        select codigo from financas.classificacoesfinanceiras where grupoempresarial in :grupos group by codigo having count(*)>1
+        )
+        update financas.classificacoesfinanceiras set codigo = ge.codigo || '_' || financas.classificacoesfinanceiras.codigo
+        from ns.gruposempresariais as ge, codigos_repetido as cr
+        where ge.grupoempresarial=financas.classificacoesfinanceiras.grupoempresarial
+        and cr.codigo=financas.classificacoesfinanceiras.codigo
+        """
+
+        self.db_adapter.execute(sql, grupos=tuple(grupos))
+
+        # Movendo as classificações financeiras para o destino
+        sql = """
+        update financas.classificacoesfinanceiras set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem
+        """
+
+        self.db_adapter.execute(
+            sql, grupo_destino=id_grupo_destino, grupos_origem=tuple(ids_grupos_origem))
 
     def tratar_configuracoesnumeracoesdnf(self, id_grupo_destino: uuid.UUID, ids_grupos_origem: uuid.UUID):
 
