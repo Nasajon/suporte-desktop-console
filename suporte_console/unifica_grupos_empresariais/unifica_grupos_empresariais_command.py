@@ -450,6 +450,11 @@ class UnificaGruposEmpresariaisCommand(Command):
 
             grupo_destino = args.destino
 
+            # Validando de o destino está na origem
+            if grupo_destino in grupos_origem:
+                raise Exception(
+                    f"O grupo de destino {grupo_destino} não pode constar nos grupos de origem: {grupos_origem}")
+
             # Notificando início do processamento
             self.log(
                 f"Unificando os grupos empresariais de origem: {grupos_origem}, para o grupo de destino {grupo_destino}")
