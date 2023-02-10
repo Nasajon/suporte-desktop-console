@@ -93,7 +93,7 @@ class UnificaGruposEmpresariaisCommand(Command):
         'update locacoes.lancamentomultiploativos set grupoempresarial_id=:grupo_destino where grupoempresarial_id in :grupos_origem',
         'update locacoes.modalidadesdepagamento set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update ns.atributos set id_grupoempresarial=:grupo_destino where id_grupoempresarial in :grupos_origem',
-        'update ns.configuracoes set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
+        # 'update ns.configuracoes set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update ns.configuracoescategoriasporclassfinan set id_grupoempresarial=:grupo_destino where id_grupoempresarial in :grupos_origem',
         # 'update ns.configuracoesnumeracoesdnf set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
         'update ns.destinos_sincronizacao_gruposempresariais set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem',
@@ -321,6 +321,121 @@ class UnificaGruposEmpresariaisCommand(Command):
         self.backup_tabela('financas', 'classificacoesfinanceiras')
         self.tratar_classificacoesfinanceiras(
             id_grupo_destino, ids_grupos_origem)
+
+        # tabela ns.configuracoes
+        self.log(f"Tabela especial: ns.configuracoes.")
+        self.backup_tabela('ns', 'configuracoes')
+        self.tratar_configuracoes(id_grupo_destino, ids_grupos_origem)
+
+    def tratar_configuracoes(self, id_grupo_destino: uuid.UUID, ids_grupos_origem: List[uuid.UUID]):
+
+        # Copiando as configurações que não existam no destino (escolhendo uma ao acaso), e que não sejam de empresa, estabelecimento e nem de usuário
+        sql = """
+        select
+           c.campo, c.valor, c.grupo, c.sessao, c.camadasistema, c.maquina, c.versao, c.aplicacao, c.ano, c.ano_ini, c.tipo_ini, c.nome_ini, c.grupo_ini, c.campo_ini, c.date_ini, c.boolean_ini, c.integer_ini, c.largeint_ini, c.currency_ini, c.float_ini, c.guid_ini, c.string_ini, c.empresa, c.chave_ini, c.estabelecimento, c.usuario, c.identificacao, c.grupoempresarial, c.lastupdate, c.tenant, c.valorbytea
+        from
+            ns.configuracoes as c
+            left join ns.configuracoes as c2 on (
+                coalesce(c.campo, -1) = coalesce(c2.campo, -1)
+                and coalesce(c.grupo, -1) = coalesce(c2.grupo, -1)
+                and coalesce(c.sessao, -1) = coalesce(c2.sessao, -1)
+                and coalesce(c.camadasistema, -1) = coalesce(c2.camadasistema, -1)
+                and coalesce(c.aplicacao, -1) = coalesce(c2.aplicacao, -1)
+                and c.configuracao <> c2.configuracao
+                and c2.grupoempresarial = :grupo_destino
+                and c2.empresa is null
+                and c2.estabelecimento is null
+                and c2.usuario is null
+                and c2.identificacao is null
+            )
+        where
+            c.grupoempresarial in :grupos
+            and c2.configuracao is null
+            and c.empresa is null
+            and c.estabelecimento is null
+            and c.usuario is null
+            and c.identificacao is null
+        """
+        configuracoes_origem = self.db_adapter.execute_query(
+            sql, grupos=tuple(ids_grupos_origem), grupo_destino=id_grupo_destino)
+        configs_resolvidas = set()
+
+        for config_origem in configuracoes_origem:
+            id_config = f"{config_origem['campo']}__{config_origem['grupo']}__{config_origem['sessao']}__{config_origem['camadasistema']}__{config_origem['aplicacao']}"
+
+            if id_config in configs_resolvidas:
+                continue
+
+            sql = """
+            insert into ns.configuracoes (
+            campo, valor, grupo, sessao, camadasistema, maquina, versao, aplicacao, ano, ano_ini, tipo_ini, nome_ini, grupo_ini, campo_ini, date_ini, boolean_ini, integer_ini, largeint_ini, currency_ini, float_ini, guid_ini, string_ini, empresa, chave_ini, estabelecimento, usuario, identificacao, grupoempresarial, lastupdate, tenant, valorbytea)
+            values (:campo, :valor, :grupo, :sessao, :camadasistema, :maquina, :versao, :aplicacao, :ano, :ano_ini, :tipo_ini, :nome_ini, :grupo_ini, :campo_ini, :date_ini, :boolean_ini, :integer_ini, :largeint_ini, :currency_ini, :float_ini, :guid_ini, :string_ini, :empresa, :chave_ini, :estabelecimento, :usuario, :identificacao, :grupoempresarial, :lastupdate, :tenant, :valorbytea)
+            """
+            self.db_adapter.execute(sql, grupoempresarial=id_grupo_destino, campo=config_origem['campo'], valor=config_origem['valor'], grupo=config_origem['grupo'], sessao=config_origem['sessao'], camadasistema=config_origem['camadasistema'], maquina=config_origem['maquina'], versao=config_origem['versao'], aplicacao=config_origem['aplicacao'], ano=config_origem['ano'], ano_ini=config_origem['ano_ini'], tipo_ini=config_origem['tipo_ini'], nome_ini=config_origem['nome_ini'], grupo_ini=config_origem['grupo_ini'], campo_ini=config_origem['campo_ini'], date_ini=config_origem[
+                                    'date_ini'], boolean_ini=config_origem['boolean_ini'], integer_ini=config_origem['integer_ini'], largeint_ini=config_origem['largeint_ini'], currency_ini=config_origem['currency_ini'], float_ini=config_origem['float_ini'], guid_ini=config_origem['guid_ini'], string_ini=config_origem['string_ini'], empresa=config_origem['empresa'], chave_ini=config_origem['chave_ini'], estabelecimento=config_origem['estabelecimento'], usuario=config_origem['usuario'], identificacao=config_origem['identificacao'], lastupdate=config_origem['lastupdate'], tenant=config_origem['tenant'], valorbytea=config_origem['valorbytea'])
+
+            configs_resolvidas.add(id_config)
+
+        # Copiando as configurações que não existam no destino (escolhendo uma ao acaso), e que sejam de usuário (mas não de empresa, nem de estabelecimento)
+        sql = """
+        select
+           c.campo, c.valor, c.grupo, c.sessao, c.camadasistema, c.maquina, c.versao, c.aplicacao, c.ano, c.ano_ini, c.tipo_ini, c.nome_ini, c.grupo_ini, c.campo_ini, c.date_ini, c.boolean_ini, c.integer_ini, c.largeint_ini, c.currency_ini, c.float_ini, c.guid_ini, c.string_ini, c.empresa, c.chave_ini, c.estabelecimento, c.usuario, c.identificacao, c.grupoempresarial, c.lastupdate, c.tenant, c.valorbytea
+        from
+            ns.configuracoes as c
+            left join ns.configuracoes as c2 on (
+                coalesce(c.campo, -1) = coalesce(c2.campo, -1)
+                and coalesce(c.grupo, -1) = coalesce(c2.grupo, -1)
+                and coalesce(c.sessao, -1) = coalesce(c2.sessao, -1)
+                and coalesce(c.camadasistema, -1) = coalesce(c2.camadasistema, -1)
+                and coalesce(c.aplicacao, -1) = coalesce(c2.aplicacao, -1)
+                and c.usuario = c2.usuario
+                and c.configuracao <> c2.configuracao
+                and c2.grupoempresarial = :grupo_destino
+                and c2.empresa is null
+                and c2.estabelecimento is null
+                and c2.identificacao is null
+                and c2.usuario is not null
+            )
+        where
+            c.grupoempresarial in :grupos
+            and c2.configuracao is null
+            and c.empresa is null
+            and c.estabelecimento is null
+            and c.identificacao is null
+            and c.usuario is not null
+        """
+        configuracoes_origem = self.db_adapter.execute_query(
+            sql, grupos=tuple(ids_grupos_origem), grupo_destino=id_grupo_destino)
+        configs_resolvidas = set()
+
+        for config_origem in configuracoes_origem:
+            id_config = f"{config_origem['campo']}__{config_origem['grupo']}__{config_origem['sessao']}__{config_origem['camadasistema']}__{config_origem['aplicacao']}"
+
+            if id_config in configs_resolvidas:
+                continue
+
+            sql = """
+            insert into ns.configuracoes (
+            campo, valor, grupo, sessao, camadasistema, maquina, versao, aplicacao, ano, ano_ini, tipo_ini, nome_ini, grupo_ini, campo_ini, date_ini, boolean_ini, integer_ini, largeint_ini, currency_ini, float_ini, guid_ini, string_ini, empresa, chave_ini, estabelecimento, usuario, identificacao, grupoempresarial, lastupdate, tenant, valorbytea)
+            values (:campo, :valor, :grupo, :sessao, :camadasistema, :maquina, :versao, :aplicacao, :ano, :ano_ini, :tipo_ini, :nome_ini, :grupo_ini, :campo_ini, :date_ini, :boolean_ini, :integer_ini, :largeint_ini, :currency_ini, :float_ini, :guid_ini, :string_ini, :empresa, :chave_ini, :estabelecimento, :usuario, :identificacao, :grupoempresarial, :lastupdate, :tenant, :valorbytea)
+            """
+            self.db_adapter.execute(sql, grupoempresarial=id_grupo_destino, campo=config_origem['campo'], valor=config_origem['valor'], grupo=config_origem['grupo'], sessao=config_origem['sessao'], camadasistema=config_origem['camadasistema'], maquina=config_origem['maquina'], versao=config_origem['versao'], aplicacao=config_origem['aplicacao'], ano=config_origem['ano'], ano_ini=config_origem['ano_ini'], tipo_ini=config_origem['tipo_ini'], nome_ini=config_origem['nome_ini'], grupo_ini=config_origem['grupo_ini'], campo_ini=config_origem['campo_ini'], date_ini=config_origem[
+                                    'date_ini'], boolean_ini=config_origem['boolean_ini'], integer_ini=config_origem['integer_ini'], largeint_ini=config_origem['largeint_ini'], currency_ini=config_origem['currency_ini'], float_ini=config_origem['float_ini'], guid_ini=config_origem['guid_ini'], string_ini=config_origem['string_ini'], empresa=config_origem['empresa'], chave_ini=config_origem['chave_ini'], estabelecimento=config_origem['estabelecimento'], usuario=config_origem['usuario'], identificacao=config_origem['identificacao'], lastupdate=config_origem['lastupdate'], tenant=config_origem['tenant'], valorbytea=config_origem['valorbytea'])
+
+            configs_resolvidas.add(id_config)
+
+        # Alterando as configurações que eram de empresa ou estabelecimento
+        sql = """
+        update ns.configuracoes set grupoempresarial=:grupo_destino where grupoempresarial in :grupos_origem and (empresa is not null or estabelecimento is not null)
+        """
+        self.db_adapter.execute(
+            sql, grupo_destino=id_grupo_destino, grupos_origem=tuple(ids_grupos_origem))
+
+        # Excluindo as configurações dos grupos empresariais de origem
+        sql = """
+        delete from ns.configuracoes where grupoempresarial in :grupos_origem
+        """
+        self.db_adapter.execute(sql, grupos_origem=tuple(ids_grupos_origem))
 
     def tratar_classificacoesfinanceiras(self, id_grupo_destino: uuid.UUID, ids_grupos_origem: List[uuid.UUID]):
 
