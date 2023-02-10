@@ -90,6 +90,19 @@ Obs.: As tratativas de conjunto são necessárias apenas para bancos no Modo Emp
 * **-r ou --origem:** Lista de códigos dos grupos empresariais a serem excluídos (terão os dados migrados para o grupo de destino), separados por vírgula (```,```). Obs.: Se for necessário passar um código que contenha um caracter de espaçamento, é preciso envolver toda a lista de códigos das empresas, com aspas duplas (exemplo: ```"CODIGO1,CODIGO EMPRESA 2,CODIGO3"```).
 * **-i ou --destino:** Código do grupo empresarial que permancerá na base (recebendo os dados e configurações dos grupos de origem). Este parâmetro não aceita uma lista, e caso haja um caracter de espaçamento, é preciso envolver o código com aspas duplas (exemplo: ```"CODIGO GRUPO"```).
 
+#### Tratativas Especiais da Unificação de Grupos
+
+* Tabela ns.configuracoes
+  * As configurações que não sejam de usuário, e não existam no grupo de destino, são copiadas de um dos grupos de origem (selecionado aleatoriamente).
+  * As configurações que sejam de usuário, e não existam no grupo de destino, são copiadas de um dos grupos de origem (selecionado aleatoriamente).
+  * As configurações de empresas e estabelecimentos são copiadas.
+  * Por fim, todas as configurações dos grupos de origem são apagadas.
+* Tabela financas.classificacoesfinanceiras
+  * As classificações financeiras que, porventura, ao mudarem de grupo empresarial, ficarem duplicadas, terão seu código renomeado, para contem o código do grupo de origem (mais um "_"), como prefixo. Exemplo, no grupo "001" e no "002" existe a classificação "1.1"; após a unificação com destino para outro grupo, haverá uma classificação "001_1.1" e outra "002_1.1".
+* Tabela ns.configuracoesnumeracoesdnf
+  * Para as configurações de numeração automática, ou semi automática, no grpuo de destino persistirá a configuração de numeração com maior valor.
+  * Para as demais configurações (manuais), no grupo de destino persiste apenas uma dentre as origens (selecionada ao acaso).
+
 ## Empactoando para Disrtibuição
 
 O comando pode ser empacotado em zip ou exe.
