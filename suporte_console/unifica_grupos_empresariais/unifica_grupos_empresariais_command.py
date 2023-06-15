@@ -355,6 +355,7 @@ class UnificaGruposEmpresariaisCommand(Command):
             and c.estabelecimento is null
             and c.usuario is null
             and c.identificacao is null
+            and c.valor <> c2.valor
         """
         configuracoes_origem = self.db_adapter.execute_query(
             sql, grupos=tuple(ids_grupos_origem), grupo_destino=id_grupo_destino)
@@ -590,6 +591,10 @@ class UnificaGruposEmpresariaisCommand(Command):
                 conjuntos_destino = self.get_conjuntos_grupos([grupo_destino])
                 conjuntos_destino = {c['cadastro']: c['conjunto']
                                      for c in conjuntos_destino}
+                
+                if len(conjuntos_destino) == 0:
+                    raise Exception(
+                        f"O grupo de destino {grupo_destino} deve conter pelo menos uma empresa e um estabelecimento vinculado.")
 
                 # Recuperando os conjuntos (por tipo de cadastro), dos grupos empresariais de origem
                 conjuntos_origem = self.get_conjuntos_grupos(grupos_origem)
