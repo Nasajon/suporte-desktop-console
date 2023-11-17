@@ -3,6 +3,7 @@ import datetime
 import logging
 import sys
 import time
+import shlex
 
 from typing import List
 
@@ -188,7 +189,7 @@ def main():
                         exit = True
                         break
                     else:
-                        pars = cli_pars + user_input.split(' ')
+                        pars = cli_pars + shlex.split(user_input)
 
                         # Interpreting args
                         args, _ = parser.parse_known_args(pars)
