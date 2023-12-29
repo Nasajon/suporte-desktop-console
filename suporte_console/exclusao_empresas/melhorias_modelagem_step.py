@@ -5482,9 +5482,6 @@ INSERT INTO exclusao.entidades_dependencias
 VALUES('persona', 'trabalhadores', 'ns', 'empresas', 'empresa');
 INSERT INTO exclusao.entidades_dependencias
 (schema_name_origem, table_name_origem, schema_name_destino, table_name_destino, fk_column)
-VALUES('persona', 'trabalhadores', 'ns', 'empresas', 'empresaanterior');
-INSERT INTO exclusao.entidades_dependencias
-(schema_name_origem, table_name_origem, schema_name_destino, table_name_destino, fk_column)
 VALUES('persona', 'trabalhadores', 'ns', 'estabelecimentos', 'estabelecimento');
 INSERT INTO exclusao.entidades_dependencias
 (schema_name_origem, table_name_origem, schema_name_destino, table_name_destino, fk_column)
@@ -5537,9 +5534,6 @@ VALUES('persona', 'trabalhadores', 'persona', 'trabalhadores', 'matriculaoutraca
 INSERT INTO exclusao.entidades_dependencias
 (schema_name_origem, table_name_origem, schema_name_destino, table_name_destino, fk_column)
 VALUES('persona', 'trabalhadores', 'persona', 'trabalhadores', 'matriculaoutrovinculo');
-INSERT INTO exclusao.entidades_dependencias
-(schema_name_origem, table_name_origem, schema_name_destino, table_name_destino, fk_column)
-VALUES('persona', 'trabalhadores', 'persona', 'trabalhadores', 'trabalhadorempresaanterior');
 INSERT INTO exclusao.entidades_dependencias
 (schema_name_origem, table_name_origem, schema_name_destino, table_name_destino, fk_column)
 VALUES('persona', 'trabalhadores', 'persona', 'trabalhadores', 'trabalhadorsubstituido');
@@ -6634,13 +6628,13 @@ class MelhoriasModelagemStep(Step):
 
     def main(self, data: str, invert_selecao: bool):
         self.log(
-            'Aplicando ajustes no BD, e criando estrutura básica de controle do processo de exclusão...')
+            "Aplicando ajustes no BD, e criando estrutura básica de controle do processo de exclusão..."
+        )
 
         try:
             self.db_adapter.execute(MELHORIAS_MODELAGEM_SCRITTA)
         except:
-            self.log(
-                'Não conseguiu criar as colunas de ID UUID em tabelas do scritta')
+            self.log("Não conseguiu criar as colunas de ID UUID em tabelas do scritta")
 
         if not self.verifica_entidades_exists():
             self.db_adapter.execute(CRIAR_TABELA_ENTIDADES)
