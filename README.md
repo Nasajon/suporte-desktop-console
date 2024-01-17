@@ -85,6 +85,21 @@ Comando destinado a unificação de grupos empresariais, passando todas as assoc
 
 Obs.: As tratativas de conjunto são necessárias apenas para bancos no Modo Empresa.
 
+### Unificando os Conjuntos de Fornecedores
+
+ID do comando (para o parâmetro ```-c```):
+
+> unifica_conjuntos_fornecedores
+
+Comando destinado a fazer com que os registros de fornecedores sejam compartilhados por todos os grupos empresariais contidos no banco de dados. Assim, cada fornecedor passa a ser visto por todos os grupos empresariais.
+
+A lógica geral de funcionamento é:
+
+1. Remover todos os conjuntos de fornecedores do banco de dados, independentemente do modo de instalação (empresa, ou escritório contábil).
+2. Criar um único conjunto de fornecedores.
+3. Associar o novo conjunto a todos os estabelecimentos.
+4. Adicionar todos os fornecedores nesse único conjunto.
+
 #### Parâmetros adicionais para a linha de comando
 
 * **-r ou --origem:** Lista de códigos dos grupos empresariais a serem excluídos (terão os dados migrados para o grupo de destino), separados por vírgula (```,```). Obs.: Se for necessário passar um código que contenha um caracter de espaçamento, é preciso envolver toda a lista de códigos das empresas, com aspas duplas (exemplo: ```"CODIGO1,CODIGO EMPRESA 2,CODIGO3"```).
